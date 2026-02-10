@@ -1,0 +1,7 @@
+{
+  "name": "Geleza Smart",
+  "description": "A personalized, fun, and engaging AI Maths tutor for K-12 students. Snap a photo of your homework and get instant, personalized help.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
