@@ -33,8 +33,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
             }`}
         >
           {message.imageUrl && (
-            <div className="mb-3 rounded-lg overflow-hidden border border-black/10">
-              <img src={message.imageUrl} alt="Homework upload" className="max-w-full h-auto object-contain max-h-64" />
+            <div className="mb-3 rounded-lg overflow-hidden border border-black/10 bg-gray-50">
+              <img src={message.imageUrl} alt="Homework upload" className="max-w-full h-auto object-contain max-h-64 mx-auto" />
             </div>
           )}
           
@@ -57,16 +57,19 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
                    </div>
                  ),
                  
-                 li: ({node, index, ordered, ...props}) => {
+                 // Use 'any' type to handle custom props passed by react-markdown without TS errors
+                 li: ({node, ...props}: any) => {
+                   const { ordered, index, ...rest } = props;
+                   
                    if (ordered && isBot) {
                      return (
                         <li className="flex items-start gap-3 bg-white border border-blue-100 rounded-xl p-3 md:p-4 shadow-sm hover:shadow-md transition-all">
                            {/* The counter is handled via CSS ::before to ensure it is a flex item and doesn't overlap */}
-                           <div className="flex-1 min-w-0" {...props} />
+                           <div className="flex-1 min-w-0" {...rest} />
                         </li>
                      );
                    }
-                   return <li className="ml-4 list-disc" {...props} />;
+                   return <li className="ml-4 list-disc" {...rest} />;
                  },
                  
                  // Standard Bullet lists
@@ -80,8 +83,22 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
                    </blockquote>
                  ),
                  
-                 code: ({node, className, children, ...props}) => {
-                   const match = /language-(\w+)/.exec(className || '')
+                 // Code block handler - Detects 'svg' language to render diagrams
+                 code: ({node, className, children, ...props}: any) => {
+                   const match = /language-(\w+)/.exec(className || '');
+                   const isSvg = match && match[1] === 'svg';
+
+                   if (isSvg) {
+                     return (
+                       <div className="my-4 p-4 bg-white border border-gray-200 rounded-xl shadow-sm flex justify-center overflow-hidden">
+                         <div 
+                           className="w-full max-w-[300px]"
+                           dangerouslySetInnerHTML={{ __html: String(children).replace(/\\n/g, ' ') }} 
+                         />
+                       </div>
+                     );
+                   }
+
                    return !match ? (
                      <code className={`px-1.5 py-0.5 rounded font-mono text-sm ${isBot ? 'bg-gray-100 text-pink-600 border border-gray-200' : 'bg-primary-700 text-white'}`} {...props}>
                        {children}
