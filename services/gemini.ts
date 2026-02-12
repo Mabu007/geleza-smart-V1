@@ -4,7 +4,7 @@ import { ChatMessage, UserProfile } from "../types";
 // Note: In a real production app, ensure your API key is secured via a backend proxy or appropriate restrictions.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-const MODEL_NAME = 'gemini-3-flash-preview';
+const MODEL_NAME = 'gemini-2.0-flash';
 
 export const generateMathResponse = async (
   history: ChatMessage[],
