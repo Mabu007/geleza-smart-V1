@@ -3,7 +3,6 @@ import { ChatMessage, UserProfile, OnboardingData } from './types';
 import { generateMathResponse } from './services/gemini';
 import OnboardingModal from './components/OnboardingModal';
 import ChatMessageBubble from './components/ChatMessage';
-import CameraCapture from './components/CameraCapture';
 
 const App: React.FC = () => {
   // Profile State
@@ -14,7 +13,6 @@ const App: React.FC = () => {
   // Chat State
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -52,7 +50,7 @@ const App: React.FC = () => {
     const greeting: ChatMessage = {
       id: 'init-1',
       role: 'model',
-      text: `Hey there! I'm Geleza Smart, your new math buddy! 🎓✨ \n\nI see you like **${data.favoredCelebrity}** and want to be a **${data.dreamJob}**! That is so cool! 🤩\n\nTake a picture of your homework or ask me a question, and let's crush some math problems together!`,
+      text: `Hey there! I'm Geleza Smart, your new math buddy! 🎓✨ \n\nI see you like **${data.favoredCelebrity}** and want to be a **${data.dreamJob}**! That is so cool! 🤩\n\nAsk me a question, and let's crush some math problems together!`,
       timestamp: Date.now()
     };
     setMessages([greeting]);
@@ -68,26 +66,24 @@ const App: React.FC = () => {
   };
 
   const handleSendMessage = async () => {
-    if ((!inputText.trim() && !selectedImage) || isProcessing || !profile) return;
+    if (!inputText.trim() || isProcessing || !profile) return;
 
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
       text: inputText,
-      imageUrl: selectedImage || undefined,
       timestamp: Date.now()
     };
 
     setMessages(prev => [...prev, userMsg]);
     setInputText('');
-    setSelectedImage(null);
     setIsProcessing(true);
 
     try {
       const responseText = await generateMathResponse(
         messages, 
         userMsg.text, 
-        userMsg.imageUrl, 
+        undefined, // No image support
         profile
       );
 
@@ -161,9 +157,9 @@ const App: React.FC = () => {
           {messages.length === 0 && !showOnboarding && (
             <div className="text-center text-gray-400 my-auto pb-10">
               <div className="w-24 h-24 bg-white rounded-full mx-auto mb-4 flex items-center justify-center shadow-md">
-                 <i className="fas fa-camera text-4xl text-primary-200"></i>
+                 <i className="fas fa-calculator text-4xl text-primary-200"></i>
               </div>
-              <p className="text-lg font-display text-gray-500">Snap a photo of your homework to start!</p>
+              <p className="text-lg font-display text-gray-500">Ask me a math question to start!</p>
             </div>
           )}
           
@@ -194,26 +190,7 @@ const App: React.FC = () => {
       <footer className="bg-white border-t border-gray-200 p-4 z-20">
         <div className="max-w-3xl mx-auto space-y-3">
           
-          {/* Image Preview */}
-          {selectedImage && (
-            <div className="relative inline-block">
-              <div className="relative rounded-xl overflow-hidden border border-gray-200 shadow-md group">
-                <img src={selectedImage} alt="Preview" className="h-20 w-auto object-cover" />
-                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <button 
-                    onClick={() => setSelectedImage(null)}
-                    className="bg-red-500 text-white p-1 rounded-full w-6 h-6 flex items-center justify-center"
-                  >
-                    <i className="fas fa-times text-xs"></i>
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
           <div className="flex items-end gap-3">
-             <CameraCapture onCapture={setSelectedImage} />
-             
              <div className="flex-1 bg-gray-100 rounded-2xl flex items-center border border-transparent focus-within:border-primary-500 focus-within:bg-white transition-all">
                <textarea
                  value={inputText}
@@ -227,9 +204,9 @@ const App: React.FC = () => {
              
              <button 
                onClick={handleSendMessage}
-               disabled={(!inputText.trim() && !selectedImage) || isProcessing}
+               disabled={!inputText.trim() || isProcessing}
                className={`p-3 rounded-full shadow-lg transition-all duration-200 
-                 ${(!inputText.trim() && !selectedImage) || isProcessing 
+                 ${!inputText.trim() || isProcessing 
                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
                    : 'bg-primary-600 text-white hover:bg-primary-700 active:scale-90 hover:shadow-xl'
                  }`}

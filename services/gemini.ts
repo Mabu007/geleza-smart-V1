@@ -2,14 +2,14 @@ import Groq from "groq-sdk";
 import { ChatMessage, UserProfile } from "../types";
 
 // Initialize Groq SDK
-// Note: dangerouslyAllowBrowser is required for client-side usage.
-// Ensure your API key is correctly set in your environment.
+// Using GEMINI_API_KEY environment variable as requested.
+// Note: This relies on your build system/environment injecting process.env.GEMINI_API_KEY.
 const groq = new Groq({ 
-  apiKey: process.env.Groq_API_KEY, 
+  apiKey: process.env.GEMINI_API_KEY, 
   dangerouslyAllowBrowser: true 
 });
 
-const MODEL_NAME = 'llama-3.2-90b-vision-preview';
+const MODEL_NAME = 'llama-3.1-8b-instant';
 
 export const generateMathResponse = async (
   history: ChatMessage[],
@@ -19,6 +19,7 @@ export const generateMathResponse = async (
 ): Promise<string> => {
   try {
     // 1. Construct the Persona-driven System Instruction
+    // Note: Adjusted for text-only model.
     const systemInstruction = `
       You are Geleza Smart, a world-class, super fun, and engaging AI Maths Tutor for K-12 students.
       
@@ -29,24 +30,25 @@ export const generateMathResponse = async (
       - Dream Job: ${userProfile.dreamJob}
 
       YOUR GUIDELINES:
-      1. **Visuals & Drawings**: 
-         - If the problem involves geometry, graphs, or shapes, YOU MUST CREATE A DRAWING.
+      1. **Text & Code Only**: You cannot see images. If the user refers to an image, ask them to describe the problem in text.
+      2. **Visuals (Output)**: 
+         - If explaining geometry or graphs, YOU CAN CREATE A DRAWING using SVG code.
          - To draw, output a valid **SVG** XML code block. Wrap it in \`\`\`svg ... \`\`\`.
-         - Keep SVGs simple, using a viewBox of "0 0 300 200" or similar. Use high-contrast colors (stroke="black", fill="none" or light blue).
+         - Keep SVGs simple (viewBox="0 0 300 200"). Use high-contrast colors.
       
-      2. **Math Formatting**: 
+      3. **Math Formatting**: 
          - **CRITICAL**: Use LaTeX for ALL math formulas.
          - Inline: $x^2$ (single dollar sign).
          - Block: $$ \\frac{a}{b} $$ (double dollar signs).
-         - **Data Tables**: Use Markdown Tables to organize data, comparisons, steps, or values cleanly.
+         - **Data Tables**: Use Markdown Tables.
 
-      3. **Step-by-Step Layout**:
-         - Structure your solution using a Numbered List (1., 2., 3.).
-         - Bold the **Key Action** at the start of each step.
+      4. **Step-by-Step Layout**:
+         - Structure solutions with Numbered Lists (1., 2., 3.).
+         - Bold the **Key Action** at start of steps.
          - KEEP IT CONCISE.
 
-      4. **Personalization**:
-         - Relate the problem to ${userProfile.favoredCelebrity} or being a ${userProfile.dreamJob} occasionally.
+      5. **Personalization**:
+         - Relate to ${userProfile.favoredCelebrity} or being a ${userProfile.dreamJob}.
          - Use emojis 🌟.
     `;
 
@@ -55,7 +57,7 @@ export const generateMathResponse = async (
       { role: "system", content: systemInstruction }
     ];
 
-    // 3. Add History (Text only to save tokens/complexity, avoiding base64 bloat in history)
+    // 3. Add History
     history.forEach(msg => {
       messages.push({
         role: msg.role === 'model' ? 'assistant' : 'user',
@@ -63,31 +65,16 @@ export const generateMathResponse = async (
       });
     });
 
-    // 4. Construct Current Message Content
-    let currentContent: any;
-
+    // 4. Construct Current Message Content (Text Only)
+    // We ignore newImageBase64 because the model is text-only.
+    let contentToSend = newMessage;
     if (newImageBase64) {
-      // Multimodal input for Groq (Llama Vision)
-      currentContent = [
-        {
-          type: "text",
-          text: newMessage || "Please help me with this image."
-        },
-        {
-          type: "image_url",
-          image_url: {
-            url: newImageBase64 // Expects data:image/jpeg;base64,... string
-          }
-        }
-      ];
-    } else {
-      // Text-only input
-      currentContent = newMessage;
+      contentToSend += "\n\n[System Note: User attempted to upload an image, but this model is text-only. Please ask them to describe the problem.]";
     }
 
     messages.push({
       role: "user",
-      content: currentContent
+      content: contentToSend
     });
 
     // 5. Call Groq API
