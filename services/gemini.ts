@@ -1,10 +1,15 @@
-import { GoogleGenAI, GenerateContentResponse, Content, Part } from "@google/genai";
+import Groq from "groq-sdk";
 import { ChatMessage, UserProfile } from "../types";
 
-// Note: In a real production app, ensure your API key is secured via a backend proxy or appropriate restrictions.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Initialize Groq SDK
+// Note: dangerouslyAllowBrowser is required for client-side usage.
+// Ensure your API key is correctly set in your environment.
+const groq = new Groq({ 
+  apiKey: process.env.API_KEY, 
+  dangerouslyAllowBrowser: true 
+});
 
-const MODEL_NAME = 'gemini-2.0-flash';
+const MODEL_NAME = 'llama-3.2-90b-vision-preview';
 
 export const generateMathResponse = async (
   history: ChatMessage[],
@@ -33,7 +38,8 @@ export const generateMathResponse = async (
          - **CRITICAL**: Use LaTeX for ALL math formulas.
          - Inline: $x^2$ (single dollar sign).
          - Block: $$ \\frac{a}{b} $$ (double dollar signs).
-      
+         - **Data Tables**: Use Markdown Tables to organize data, comparisons, steps, or values cleanly.
+
       3. **Step-by-Step Layout**:
          - Structure your solution using a Numbered List (1., 2., 3.).
          - Bold the **Key Action** at the start of each step.
@@ -44,48 +50,61 @@ export const generateMathResponse = async (
          - Use emojis 🌟.
     `;
 
-    // 2. Prepare History (Context)
-    // We filter out OLD images to prevent payload bloat/errors, keeping only text from history.
-    const historyContents: Content[] = history.map(msg => ({
-      role: msg.role,
-      parts: [{ text: msg.text }] as Part[]
-    }));
+    // 2. Prepare Messages Array
+    const messages: any[] = [
+      { role: "system", content: systemInstruction }
+    ];
 
-    // 3. Prepare Current Message
-    const currentParts: Part[] = [];
-    
-    // Add image if present (Only for the current turn)
-    if (newImageBase64) {
-      const base64Data = newImageBase64.split(',')[1] || newImageBase64;
-      const mimeType = newImageBase64.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/)?.[1] || 'image/jpeg';
-      
-      currentParts.push({
-        inlineData: {
-          mimeType: mimeType,
-          data: base64Data
-        }
+    // 3. Add History (Text only to save tokens/complexity, avoiding base64 bloat in history)
+    history.forEach(msg => {
+      messages.push({
+        role: msg.role === 'model' ? 'assistant' : 'user',
+        content: msg.text
       });
-    }
-
-    // Add text
-    currentParts.push({ text: newMessage });
-
-    const fullContents = [...historyContents, { role: 'user', parts: currentParts }];
-
-    // 4. Generate Content
-    const response: GenerateContentResponse = await ai.models.generateContent({
-      model: MODEL_NAME,
-      contents: fullContents as any, // Cast to any to bypass strict type mismatch if SDK types vary
-      config: {
-        systemInstruction: systemInstruction,
-        temperature: 0.7,
-      }
     });
 
-    return response.text || "I solved it in my head but couldn't write it down! 😅 Can you ask again?";
+    // 4. Construct Current Message Content
+    let currentContent: any;
+
+    if (newImageBase64) {
+      // Multimodal input for Groq (Llama Vision)
+      currentContent = [
+        {
+          type: "text",
+          text: newMessage || "Please help me with this image."
+        },
+        {
+          type: "image_url",
+          image_url: {
+            url: newImageBase64 // Expects data:image/jpeg;base64,... string
+          }
+        }
+      ];
+    } else {
+      // Text-only input
+      currentContent = newMessage;
+    }
+
+    messages.push({
+      role: "user",
+      content: currentContent
+    });
+
+    // 5. Call Groq API
+    const completion = await groq.chat.completions.create({
+      messages: messages,
+      model: MODEL_NAME,
+      temperature: 0.6,
+      max_tokens: 1024,
+      top_p: 1,
+      stream: false,
+      stop: null
+    });
+
+    return completion.choices[0]?.message?.content || "I solved it in my head but couldn't write it down! 😅 Can you ask again?";
 
   } catch (error) {
-    console.error("Gemini API Error:", error);
-    return "AI API Error: I had trouble solving that. Please try again! 🙏";
+    console.error("Groq API Error:", error);
+    return "My brain circuits are overheating! 🤯 I couldn't process that right now. Please try again in a moment or try a simpler question.";
   }
 };
