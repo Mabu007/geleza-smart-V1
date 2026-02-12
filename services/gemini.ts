@@ -5,7 +5,7 @@ import { ChatMessage, UserProfile } from "../types";
 // Using GEMINI_API_KEY environment variable as requested.
 // Note: This relies on your build system/environment injecting process.env.GEMINI_API_KEY.
 const groq = new Groq({ 
-  apiKey: process.env.GROQ_API_KEY, 
+  apiKey: process.env.API_KEY, 
   dangerouslyAllowBrowser: true 
 });
 
