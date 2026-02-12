@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
+import remarkGfm from 'remark-gfm';
 import rehypeKatex from 'rehype-katex';
 import { ChatMessage as ChatMessageType } from '../types';
 
@@ -40,7 +41,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
           
           <div className={`prose prose-sm max-w-none ${isBot ? 'prose-headings:text-primary-700' : 'prose-invert'} prose-p:my-2 prose-headings:my-2 prose-ul:my-2`}>
             <ReactMarkdown 
-               remarkPlugins={[remarkMath]}
+               remarkPlugins={[remarkMath, remarkGfm]}
                rehypePlugins={[rehypeKatex]}
                components={{
                  p: ({node, ...props}) => <p className={`mb-2 leading-relaxed ${isBot ? 'text-gray-700' : 'text-white'}`} {...props} />,
@@ -82,6 +83,18 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
                       <div className="flex-1">{props.children}</div>
                    </blockquote>
                  ),
+
+                 // Table Styles - Card style ensuring readability in both bubbles
+                 table: ({node, ...props}) => (
+                   <div className="overflow-x-auto my-4 rounded-lg border border-gray-200 shadow-sm bg-white">
+                      <table className="min-w-full divide-y divide-gray-300" {...props} />
+                   </div>
+                 ),
+                 thead: ({node, ...props}) => <thead className="bg-gray-100" {...props} />,
+                 tbody: ({node, ...props}) => <tbody className="divide-y divide-gray-200" {...props} />,
+                 tr: ({node, ...props}) => <tr className="hover:bg-gray-50" {...props} />,
+                 th: ({node, ...props}) => <th className="px-3 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider" {...props} />,
+                 td: ({node, ...props}) => <td className="px-3 py-2 text-sm text-gray-700" {...props} />,
                  
                  // Code block handler - Detects 'svg' language to render diagrams
                  code: ({node, className, children, ...props}: any) => {
