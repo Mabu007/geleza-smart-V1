@@ -5,7 +5,7 @@ import { ChatMessage, UserProfile } from "../types";
 // Note: dangerouslyAllowBrowser is required for client-side usage.
 // Ensure your API key is correctly set in your environment.
 const groq = new Groq({ 
-  apiKey: process.env.API_KEY, 
+  apiKey: process.env.Groq_API_KEY, 
   dangerouslyAllowBrowser: true 
 });
 
