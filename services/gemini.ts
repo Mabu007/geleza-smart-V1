@@ -3,10 +3,10 @@ import { ChatMessage, UserProfile } from "../types";
 
 // Load API key from environment variable
 // For Node.js environment
-const API_KEY = process.env.VITE_GEMINI_API_KEY;
+const API_KEY = process.env.GEMINI_API_KEY;
 
 if (!API_KEY) {
-  throw new Error("Gemini API key is missing. Please set VITE_GEMINI_API_KEY in .env");
+  throw new Error("Gemini API key is missing. Please set GEMINI_API_KEY in .env");
 }
 
 // Initialize Gemini SDK
