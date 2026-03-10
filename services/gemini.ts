@@ -1,15 +1,18 @@
-import Groq from "groq-sdk";
+import { GoogleGenAI } from "@google/genai";
 import { ChatMessage, UserProfile } from "../types";
 
-// Initialize Groq SDK
-// Using GEMINI_API_KEY environment variable as requested.
-// Note: This relies on your build system/environment injecting process.env.GEMINI_API_KEY.
-const groq = new Groq({ 
-  apiKey: process.env.API_KEY, 
-  dangerouslyAllowBrowser: true 
-});
+// Load API key from environment variable
+// For Node.js environment
+const API_KEY = process.env.VITE_GEMINI_API_KEY;
 
-const MODEL_NAME = 'llama-3.1-8b-instant';
+if (!API_KEY) {
+  throw new Error("Gemini API key is missing. Please set VITE_GEMINI_API_KEY in .env");
+}
+
+// Initialize Gemini SDK
+const genAI = new GoogleGenAI({ apiKey: API_KEY });
+
+const MODEL_NAME = "gemini-1.5-flash";
 
 export const generateMathResponse = async (
   history: ChatMessage[],
@@ -18,80 +21,82 @@ export const generateMathResponse = async (
   userProfile: UserProfile
 ): Promise<string> => {
   try {
-    // 1. Construct the Persona-driven System Instruction
-    // Note: Adjusted for text-only model.
+
     const systemInstruction = `
-      You are Geleza Smart, a world-class, super fun, and engaging AI Maths Tutor for K-12 students.
-      
-      YOUR STUDENT PROFILE:
-      - Name: ${userProfile.displayName}
-      - Grade: ${userProfile.gradeLevel}
-      - Interests: ${userProfile.favoredCelebrity}, ${userProfile.hobby}
-      - Dream Job: ${userProfile.dreamJob}
+You are Geleza Smart, a world-class, super fun, and engaging AI Maths Tutor for K-12 students.
 
-      YOUR GUIDELINES:
-      1. **Text & Code Only**: You cannot see images. If the user refers to an image, ask them to describe the problem in text.
-      2. **Visuals (Output)**: 
-         - If explaining geometry or graphs, YOU CAN CREATE A DRAWING using SVG code.
-         - To draw, output a valid **SVG** XML code block. Wrap it in \`\`\`svg ... \`\`\`.
-         - Keep SVGs simple (viewBox="0 0 300 200"). Use high-contrast colors.
-      
-      3. **Math Formatting**: 
-         - **CRITICAL**: Use LaTeX for ALL math formulas.
-         - Inline: $x^2$ (single dollar sign).
-         - Block: $$ \\frac{a}{b} $$ (double dollar signs).
-         - **Data Tables**: Use Markdown Tables.
+YOUR STUDENT PROFILE:
+- Name: ${userProfile.displayName}
+- Grade: ${userProfile.gradeLevel}
+- Interests: ${userProfile.favoredCelebrity}, ${userProfile.hobby}
+- Dream Job: ${userProfile.dreamJob}
 
-      4. **Step-by-Step Layout**:
-         - Structure solutions with Numbered Lists (1., 2., 3.).
-         - Bold the **Key Action** at start of steps.
-         - KEEP IT CONCISE.
+YOUR MISSION:
+Help the student solve their math homework. If they provide an image, analyze it carefully.
+Break down the problem into simple, easy-to-understand steps.
 
-      5. **Personalization**:
-         - Relate to ${userProfile.favoredCelebrity} or being a ${userProfile.dreamJob}.
-         - Use emojis 🌟.
-    `;
+YOUR GUIDELINES:
 
-    // 2. Prepare Messages Array
-    const messages: any[] = [
-      { role: "system", content: systemInstruction }
-    ];
+1. Tone:
+Be encouraging and fun. Use emojis (🌟 🚀 ✨).
 
-    // 3. Add History
+2. Visuals:
+You can generate SVG diagrams when useful.
+Wrap them in:
+
+\`\`\`svg
+...svg code...
+\`\`\`
+
+3. Math Formatting:
+Inline math: $x^2$
+Block math: $$ \\frac{a}{b} $$
+
+4. Layout:
+Use numbered steps and bold key actions.
+`;
+
+    let prompt = `${systemInstruction}\n\n`;
+
+    prompt += "Chat History:\n";
+
     history.forEach(msg => {
-      messages.push({
-        role: msg.role === 'model' ? 'assistant' : 'user',
-        content: msg.text
-      });
+      prompt += `${msg.role === "model" ? "Geleza Smart" : userProfile.displayName}: ${msg.text}\n`;
     });
 
-    // 4. Construct Current Message Content (Text Only)
-    // We ignore newImageBase64 because the model is text-only.
-    let contentToSend = newMessage;
+    prompt += `\n${userProfile.displayName}: ${newMessage}`;
+
+    const parts: any[] = [{ text: prompt }];
+
     if (newImageBase64) {
-      contentToSend += "\n\n[System Note: User attempted to upload an image, but this model is text-only. Please ask them to describe the problem.]";
+      const base64Data = newImageBase64.split(",")[1] || newImageBase64;
+
+      parts.push({
+        inlineData: {
+          mimeType: "image/jpeg",
+          data: base64Data
+        }
+      });
     }
 
-    messages.push({
-      role: "user",
-      content: contentToSend
-    });
-
-    // 5. Call Groq API
-    const completion = await groq.chat.completions.create({
-      messages: messages,
+    const result = await genAI.models.generateContent({
       model: MODEL_NAME,
-      temperature: 0.6,
-      max_tokens: 1024,
-      top_p: 1,
-      stream: false,
-      stop: null
+      contents: [{ role: "user", parts }],
+      config: {
+        temperature: 0.7,
+        topP: 0.95,
+        topK: 40,
+        maxOutputTokens: 2048
+      }
     });
 
-    return completion.choices[0]?.message?.content || "I solved it in my head but couldn't write it down! 😅 Can you ask again?";
+    const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    return text || "Error generating response. Please try again! 🚨";
 
   } catch (error) {
-    console.error("Groq API Error:", error);
-    return "My brain circuits are overheating! 🤯 I couldn't process that right now. Please try again in a moment or try a simpler question.";
+    console.error("Gemini API Error:", error);
+
+    return "Error solving the problem. Please try again! 🚨";
   }
 };

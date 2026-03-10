@@ -13,8 +13,10 @@ const App: React.FC = () => {
   // Chat State
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Initialize from LocalStorage (Demo Mode)
   useEffect(() => {
@@ -50,7 +52,7 @@ const App: React.FC = () => {
     const greeting: ChatMessage = {
       id: 'init-1',
       role: 'model',
-      text: `Hey there! I'm Geleza Smart, your new math buddy! 🎓✨ \n\nI see you like **${data.favoredCelebrity}** and want to be a **${data.dreamJob}**! That is so cool! 🤩\n\nAsk me a question, and let's crush some math problems together!`,
+      text: `Hey there! I'm Geleza Smart, your new math buddy! 🎓✨ \n\nI see you like **${data.favoredCelebrity}** and want to be a **${data.dreamJob}**! That is so cool! 🤩\n\nAsk me a question, or **snap a photo of your homework**, and let's crush some math problems together!`,
       timestamp: Date.now()
     };
     setMessages([greeting]);
@@ -65,25 +67,39 @@ const App: React.FC = () => {
     }
   };
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSendMessage = async () => {
-    if (!inputText.trim() || isProcessing || !profile) return;
+    if ((!inputText.trim() && !selectedImage) || isProcessing || !profile) return;
 
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      text: inputText,
+      text: inputText || (selectedImage ? "Can you help me with this homework?" : ""),
+      imageUrl: selectedImage || undefined,
       timestamp: Date.now()
     };
 
     setMessages(prev => [...prev, userMsg]);
     setInputText('');
+    const currentImage = selectedImage;
+    setSelectedImage(null);
     setIsProcessing(true);
 
     try {
       const responseText = await generateMathResponse(
         messages, 
         userMsg.text, 
-        undefined, // No image support
+        currentImage || undefined,
         profile
       );
 
@@ -159,7 +175,7 @@ const App: React.FC = () => {
               <div className="w-24 h-24 bg-white rounded-full mx-auto mb-4 flex items-center justify-center shadow-md">
                  <i className="fas fa-calculator text-4xl text-primary-200"></i>
               </div>
-              <p className="text-lg font-display text-gray-500">Ask me a math question to start!</p>
+              <p className="text-lg font-display text-gray-500">Ask me a math question or upload your homework!</p>
             </div>
           )}
           
@@ -190,13 +206,42 @@ const App: React.FC = () => {
       <footer className="bg-white border-t border-gray-200 p-4 z-20">
         <div className="max-w-3xl mx-auto space-y-3">
           
+          {selectedImage && (
+            <div className="relative inline-block group">
+              <img src={selectedImage} alt="Homework preview" className="h-20 w-20 object-cover rounded-lg border-2 border-primary-500 shadow-md" />
+              <button 
+                onClick={() => setSelectedImage(null)}
+                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] shadow-lg hover:bg-red-600 transition-colors"
+              >
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+          )}
+
           <div className="flex items-end gap-3">
+             <input 
+               type="file" 
+               accept="image/*" 
+               capture="environment" // Hint for mobile to use camera
+               ref={fileInputRef} 
+               onChange={handleImageSelect} 
+               className="hidden" 
+             />
+             
+             <button 
+               onClick={() => fileInputRef.current?.click()}
+               className="p-3 bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200 transition-colors shadow-sm"
+               title="Upload Homework Picture"
+             >
+               <i className="fas fa-camera text-lg"></i>
+             </button>
+
              <div className="flex-1 bg-gray-100 rounded-2xl flex items-center border border-transparent focus-within:border-primary-500 focus-within:bg-white transition-all">
                <textarea
                  value={inputText}
                  onChange={(e) => setInputText(e.target.value)}
                  onKeyDown={handleKeyDown}
-                 placeholder="Type a math question..."
+                 placeholder="Type a math question or describe your homework..."
                  className="flex-1 bg-transparent border-none focus:ring-0 p-3 max-h-32 min-h-[48px] resize-none text-gray-700 placeholder-gray-400"
                  rows={1}
                />
@@ -204,9 +249,9 @@ const App: React.FC = () => {
              
              <button 
                onClick={handleSendMessage}
-               disabled={!inputText.trim() || isProcessing}
+               disabled={(!inputText.trim() && !selectedImage) || isProcessing}
                className={`p-3 rounded-full shadow-lg transition-all duration-200 
-                 ${!inputText.trim() || isProcessing 
+                 ${(!inputText.trim() && !selectedImage) || isProcessing 
                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
                    : 'bg-primary-600 text-white hover:bg-primary-700 active:scale-90 hover:shadow-xl'
                  }`}
