@@ -12,7 +12,7 @@ if (!API_KEY) {
 // Initialize Gemini SDK
 const genAI = new GoogleGenAI({ apiKey: API_KEY });
 
-const MODEL_NAME = "gemini-3.1-flash"; // or another valid model
+const MODEL_NAME = "gemini-3.1-flash-lite-preview"; // or another valid model
 
 export const generateMathResponse = async (
   history: ChatMessage[],
